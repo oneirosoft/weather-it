@@ -1,4 +1,4 @@
-use chrono::{Local, NaiveDate};
+use chrono::{Local, NaiveDate, NaiveDateTime, Timelike};
 use ratatui::{
     layout::Constraint,
     style::{Color, Style, Stylize},
@@ -33,8 +33,20 @@ impl Widget for WeatherTable {
                 date >= start_date
             })
             .unwrap_or(0);
+
+        let now = Local::now().naive_local();
         let rows = (start_index..start_index + 24).map(|i| {
             let (desc, emoji) = weather::get_weather_description(self.data.weather_code[i]);
+            let time = NaiveDateTime::parse_from_str(
+                self.data.date_time[i].clone().as_str(),
+                "%Y-%m-%dT%H:%M",
+            )
+            .unwrap_or_default();
+            let row_style = if time.date() == now.date() && time.hour() == now.hour() {
+                Style::new().bg(Color::DarkGray).fg(Color::White)
+            } else {
+                Style::new()
+            };
             Row::new(vec![
                 Cell::from(format!(
                     "{:>8}",
@@ -44,6 +56,7 @@ impl Widget for WeatherTable {
                 Cell::from(format!("{:.1}°F", self.data.temperature_2m[i])),
                 Self::render_precip_bar(self.data.precipitation_probability[i] as u8),
             ])
+            .style(row_style)
         });
 
         let widths = [
