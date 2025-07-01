@@ -5,8 +5,8 @@ use ratatui::{
     DefaultTerminal, Frame,
     crossterm::event::{self, Event, KeyCode, KeyEvent, KeyModifiers},
     layout::Rect,
-    style::Stylize,
-    widgets::{Paragraph, Widget},
+    style::{Color, Stylize},
+    widgets::{Block, Paragraph},
 };
 use tokio::{
     sync::mpsc::{Receiver, Sender},
@@ -114,8 +114,10 @@ impl App {
         if self.weather.daily.date.len() > 0 {
             frame.render_widget(self.daily.clone(), centered_daily);
         }
+        let status_line_block = Block::new().bg(Color::DarkGray).fg(Color::White);
+        frame.render_widget(status_line_block, app_layout[4]);
         let time = Local::now().format("%H:%M:%S").to_string();
-        frame.render_widget(Paragraph::new(time).right_aligned(), status_line);
+        frame.render_widget(Paragraph::new(time).right_aligned().bold(), status_line);
     }
 
     async fn handle_events(&mut self) -> Result<(), Box<dyn Error>> {
