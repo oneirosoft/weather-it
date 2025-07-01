@@ -7,7 +7,10 @@ use ratatui::{
     style::Stylize,
     widgets::Paragraph,
 };
-use tokio::sync::mpsc::{Receiver, Sender};
+use tokio::{
+    sync::mpsc::{Receiver, Sender},
+    time::sleep,
+};
 
 use crate::{
     data::weather::OpenMeteoResponse,
@@ -61,6 +64,7 @@ impl App {
             {
                 self.update_state(weather_data);
             }
+            sleep(Duration::from_millis(10)).await;
         }
         Ok(())
     }
@@ -131,15 +135,13 @@ impl App {
             KeyEvent {
                 code: KeyCode::Enter,
                 ..
+            }
+            | KeyEvent {
+                code: KeyCode::Char('r'),
+                modifiers: KeyModifiers::CONTROL,
+                ..
             } => {
-                self.loading = true;
-                let tx = self.weather_tx.clone();
-                let query = self.search.text().to_string();
-                tokio::spawn(async move {
-                    if let Ok(result) = crate::weather_service::dispatch_weather(&query).await {
-                        let _ = tx.send(result).await;
-                    }
-                });
+                let _ = self.update_weather().await;
             }
             KeyEvent {
                 code: KeyCode::Tab, ..
@@ -150,5 +152,17 @@ impl App {
             } => self.daily.select_previous(),
             _ => self.search.handle_key_event(key_event),
         }
+    }
+
+    async fn update_weather(&mut self) {
+        self.loading = true;
+        let tx = self.weather_tx.clone();
+        let query = self.search.text().to_string();
+
+        tokio::spawn(async move {
+            if let Ok(result) = crate::weather_service::dispatch_weather(&query).await {
+                let _ = tx.send(result).await;
+            }
+        });
     }
 }
