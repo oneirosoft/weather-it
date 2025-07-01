@@ -1,11 +1,12 @@
 use std::{boxed::Box, error::Error, time::Duration};
 
+use chrono::Local;
 use ratatui::{
     DefaultTerminal, Frame,
     crossterm::event::{self, Event, KeyCode, KeyEvent, KeyModifiers},
     layout::Rect,
     style::Stylize,
-    widgets::Paragraph,
+    widgets::{Paragraph, Widget},
 };
 use tokio::{
     sync::mpsc::{Receiver, Sender},
@@ -83,6 +84,7 @@ impl App {
         let centered_title = center(app_layout[1], (app_layout[1].width as f32 * 0.8) as u16);
         let centered_daily = center(app_layout[2], (app_layout[2].width as f32 * 0.8) as u16);
         let centered_weather = center(app_layout[3], (app_layout[3].width as f32 * 0.8) as u16);
+        let status_line = center(app_layout[4], (app_layout[4].width as f32 * 0.8) as u16);
         let loader_area = Rect {
             x: centered_search.x + centered_search.width.saturating_sub(3),
             y: centered_search.y + centered_search.height.saturating_sub(2),
@@ -112,6 +114,8 @@ impl App {
         if self.weather.daily.date.len() > 0 {
             frame.render_widget(self.daily.clone(), centered_daily);
         }
+        let time = Local::now().format("%H:%M:%S").to_string();
+        frame.render_widget(Paragraph::new(time).right_aligned(), status_line);
     }
 
     async fn handle_events(&mut self) -> Result<(), Box<dyn Error>> {

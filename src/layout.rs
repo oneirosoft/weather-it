@@ -10,6 +10,7 @@ pub fn default_layout(area: Rect) -> Rc<[Rect]> {
             Constraint::Length(3),
             Constraint::Length(6),
             Constraint::Fill(1),
+            Constraint::Length(1),
         ])
         .split(area)
 }
