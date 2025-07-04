@@ -6,42 +6,24 @@ use ratatui::{
     widgets::{Block, Cell, Row, Table, Widget},
 };
 
-use crate::data::weather::{self, OpenMeteoHourly};
+use crate::data::weather::{self, Weather};
 
 #[derive(Default)]
 pub struct WeatherTable {
-    data: OpenMeteoHourly,
-    start_date: String,
+    data: Vec<Weather>,
 }
 
 impl Widget for WeatherTable {
     fn render(self, area: ratatui::prelude::Rect, buf: &mut ratatui::prelude::Buffer) {
-        if self.data.date_time.len() == 0 {
+        if self.data.len() == 0 {
             return;
         }
         let header = Row::new(vec!["Time", "Weather", "Temperature", "Precipitation"]);
-        let start_date = NaiveDate::parse_from_str(&self.start_date, "%Y-%m-%d")
-            .unwrap_or(Local::now().date_naive());
-        let start_index = self
-            .data
-            .date_time
-            .iter()
-            .position(|date| {
-                let (date_str, _) = date.split_once('T').unwrap();
-                let date = NaiveDate::parse_from_str(date_str, "%Y-%m-%d")
-                    .unwrap_or(Local::now().date_naive());
-                date >= start_date
-            })
-            .unwrap_or(0);
 
         let now = Local::now().naive_local();
-        let rows = (start_index..start_index + 24).map(|i| {
-            let (desc, emoji) = weather::get_weather_description(self.data.weather_code[i]);
-            let time = NaiveDateTime::parse_from_str(
-                self.data.date_time[i].clone().as_str(),
-                "%Y-%m-%dT%H:%M",
-            )
-            .unwrap_or_default();
+        let rows = self.data.iter().map(|i| {
+            let (desc, emoji) = weather::get_weather_description(i.weather_code);
+            let time = i.date_time;
             let row_style = if time.date() == now.date() && time.hour() == now.hour() {
                 Style::new().bg(Color::DarkGray).fg(Color::White)
             } else {
@@ -50,11 +32,12 @@ impl Widget for WeatherTable {
             Row::new(vec![
                 Cell::from(format!(
                     "{:>8}",
-                    Self::parse_hour(self.data.date_time[i].clone()).unwrap_or_default()
+                    Self::parse_hour(i.date_time.format("%Y-%m-%dT%H:%M").to_string())
+                        .unwrap_or_default()
                 )),
                 Cell::from(format!("{} {}", emoji, desc)),
-                Cell::from(format!("{:.1}°F", self.data.temperature_2m[i])),
-                Self::render_precip_bar(self.data.precipitation_probability[i] as u8),
+                Cell::from(format!("{:.1}°F", i.temp)),
+                Self::render_precip_bar(i.precip as u8),
             ])
             .style(row_style)
         });
@@ -76,11 +59,8 @@ impl Widget for WeatherTable {
 }
 
 impl WeatherTable {
-    pub fn new(hourly: OpenMeteoHourly, start_date: String) -> Self {
-        Self {
-            data: hourly,
-            start_date: start_date,
-        }
+    pub fn new(weather: Vec<Weather>) -> Self {
+        Self { data: weather }
     }
 
     fn parse_hour(time: String) -> Option<String> {

@@ -1,3 +1,4 @@
+use chrono::{NaiveDate, NaiveDateTime};
 use iana_time_zone::get_timezone;
 use serde::Deserialize;
 use std::error::Error;
@@ -15,8 +16,8 @@ pub struct OpenMeteoHourly {
     #[serde(rename = "time")]
     pub date_time: Vec<String>,
     pub temperature_2m: Vec<f32>,
-    // pub apparent_temperature: Vec<f32>,
-    pub precipitation_probability: Vec<u32>,
+    pub apparent_temperature: Vec<f32>,
+    pub precipitation_probability: Vec<u16>,
     // pub relative_humidity_2m: Vec<u32>,
     #[serde(rename = "weathercode")]
     pub weather_code: Vec<u16>,
@@ -40,7 +41,7 @@ pub struct OpenMeteoDaily {
     pub temperature_2m_max: Vec<f32>,
     // pub apparent_temperature_min: Vec<f32>,
     pub apparent_temperature_max: Vec<f32>,
-    pub precipitation_probability_max: Vec<f32>,
+    pub precipitation_probability_max: Vec<u16>,
 }
 
 // #[derive(Debug, Deserialize, Default)]
@@ -138,4 +139,89 @@ pub fn get_cardinal_direction(degrees: f32) -> &'static str {
     let normalized = (degrees % 360.0 + 360.0) % 360.0;
     let index = (normalized / 22.5).round() as usize % 16;
     directions[index]
+}
+
+pub enum WeatherQuery {
+    Daily { date: NaiveDate },
+    Hourly { date_time: NaiveDateTime },
+}
+
+pub struct Weather {
+    pub weather_code: u16,
+    pub precip: u16,
+    pub temp: f32,
+    pub apparent_temp: f32,
+    pub date_time: NaiveDateTime,
+}
+
+pub fn hourly_weather_for(data: &OpenMeteoResponse, date: NaiveDate) -> Vec<Weather> {
+    let mut vec: Vec<Weather> = Vec::new();
+    let start_index = data
+        .hourly
+        .date_time
+        .iter()
+        .map(|date_time| {
+            NaiveDateTime::parse_from_str(date_time, "%Y-%m-%dT%H:%M")
+                .unwrap_or_default()
+                .date()
+        })
+        .position(|parssed_date| parssed_date == date)
+        .unwrap_or_default();
+    for i in start_index..start_index + 24 {
+        vec.push(Weather {
+            date_time: NaiveDateTime::parse_from_str(
+                data.hourly.date_time[i].as_str(),
+                "%Y-%m-%dT%H:%M",
+            )
+            .unwrap_or_default(),
+            weather_code: data.hourly.weather_code[i],
+            temp: data.hourly.temperature_2m[i],
+            apparent_temp: data.hourly.apparent_temperature[i],
+            precip: data.hourly.precipitation_probability[i],
+        });
+    }
+
+    vec
+}
+
+pub fn weather_lookup(data: &OpenMeteoResponse, query: WeatherQuery) -> Option<Weather> {
+    match query {
+        WeatherQuery::Daily { date } => {
+            let i = data
+                .daily
+                .date
+                .iter()
+                .map(|date_str| NaiveDate::parse_from_str(date_str, "%Y-%m-%d").unwrap_or_default())
+                .position(|parsed_date| parsed_date == date)?;
+            Some(Weather {
+                weather_code: data.daily.weather_code[i],
+                temp: data.daily.temperature_2m_max[i],
+                precip: data.daily.precipitation_probability_max[i],
+                apparent_temp: data.daily.apparent_temperature_max[i],
+                date_time: NaiveDateTime::parse_from_str(data.daily.date[i].as_str(), "%Y-%m-%d")
+                    .ok()?,
+            })
+        }
+        WeatherQuery::Hourly { date_time } => {
+            let i = data
+                .hourly
+                .date_time
+                .iter()
+                .map(|date_str| {
+                    NaiveDateTime::parse_from_str(date_str, "%Y-%m-%dT%H:%M").unwrap_or_default()
+                })
+                .position(|parsed_date| parsed_date == date_time)?;
+            Some(Weather {
+                date_time: NaiveDateTime::parse_from_str(
+                    data.hourly.date_time[i].as_str(),
+                    "%Y-%m-%dT%H:%M",
+                )
+                .ok()?,
+                weather_code: data.hourly.weather_code[i],
+                temp: data.hourly.temperature_2m[i],
+                precip: data.hourly.precipitation_probability[i],
+                apparent_temp: data.hourly.apparent_temperature[i],
+            })
+        }
+    }
 }

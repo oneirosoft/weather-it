@@ -126,8 +126,8 @@ impl DailyWeather {
         self.selected_date = self.data.date[index].clone();
     }
 
-    pub fn selected(self) -> String {
-        self.selected_date.clone()
+    pub fn selected(self) -> NaiveDate {
+        NaiveDate::parse_from_str(self.selected_date.as_str(), "%Y-%m-%d").unwrap_or_default()
     }
 }
 

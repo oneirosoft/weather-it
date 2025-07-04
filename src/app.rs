@@ -1,4 +1,4 @@
-use std::{boxed::Box, error::Error, time::Duration};
+use std::{boxed::Box, error::Error, sync::Arc, time::Duration};
 
 use chrono::Local;
 use ratatui::{
@@ -14,7 +14,7 @@ use tokio::{
 };
 
 use crate::{
-    data::weather::OpenMeteoResponse,
+    data::weather::{self, OpenMeteoResponse},
     layout::{self, center},
     weather_service::WeatherData,
     widgets::{
@@ -31,6 +31,7 @@ pub struct App {
     weather: OpenMeteoResponse,
     weather_tx: Sender<WeatherData>,
     loading: bool,
+    refresh_handle: Option<tokio::task::JoinHandle<()>>,
 }
 
 impl App {
@@ -44,6 +45,7 @@ impl App {
             weather_tx,
             loading: false,
             loader: Loader::default(),
+            refresh_handle: None,
         }
     }
 
@@ -103,10 +105,10 @@ impl App {
 
         if self.weather.hourly.date_time.len() > 0 {
             frame.render_widget(
-                WeatherTable::new(
-                    self.weather.hourly.clone(),
-                    self.daily.clone().selected().clone(),
-                ),
+                WeatherTable::new(weather::hourly_weather_for(
+                    &self.weather,
+                    self.daily.clone().selected(),
+                )),
                 centered_weather,
             );
         }
@@ -147,7 +149,11 @@ impl App {
                 modifiers: KeyModifiers::CONTROL,
                 ..
             } => {
-                let _ = self.update_weather().await;
+                if let Some(refresh_handle) = self.refresh_handle.take() {
+                    refresh_handle.abort();
+                }
+
+                self.refresh_handle = Some(self.update_weather());
             }
             KeyEvent {
                 code: KeyCode::Tab, ..
@@ -160,15 +166,18 @@ impl App {
         }
     }
 
-    async fn update_weather(&mut self) {
+    fn update_weather(&mut self) -> tokio::task::JoinHandle<()> {
         self.loading = true;
         let tx = self.weather_tx.clone();
         let query = self.search.text().to_string();
 
         tokio::spawn(async move {
-            if let Ok(result) = crate::weather_service::dispatch_weather(&query).await {
-                let _ = tx.send(result).await;
+            loop {
+                if let Ok(result) = crate::weather_service::dispatch_weather(query.as_str()).await {
+                    let _ = tx.send(result).await;
+                }
+                tokio::time::sleep(Duration::from_secs(1200)).await;
             }
-        });
+        })
     }
 }
