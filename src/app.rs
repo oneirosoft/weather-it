@@ -1,4 +1,4 @@
-use std::{boxed::Box, error::Error, sync::Arc, time::Duration};
+use std::{boxed::Box, error::Error, time::Duration};
 
 use chrono::Local;
 use ratatui::{
