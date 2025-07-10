@@ -1,0 +1,66 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+
+      - name: Build release binary
+        run: cargo build --release
+
+      - name: Prepare artifact (macos)
+        if: matrix.os == 'macos-latest'
+        run: |
+          mkdir -p dist/macos
+          cp target/release/weather dist/macos/weather
+        shell: bash
+
+      - name: Prepare artifact (linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          mkdir -p dist/linux
+          cp target/release/weather dist/linux/weather
+        shell: bash
+
+      - name: Prepare artifact (windows)
+        if: matrix.os == 'windows-latest'
+        run: |
+          mkdir -p dist/windows
+          cp target/release/weather.exe dist/windows/weather.exe
+        shell: bash
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: weather-${{ matrix.os }}
+          path: dist/*
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: ./artifacts
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ./artifacts/**/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
