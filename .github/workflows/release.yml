@@ -58,9 +58,30 @@ jobs:
         with:
           path: ./artifacts
 
+      - name: Archive macos binary
+        run: |
+          cd ./artifacts/weather-macos-latest/macos
+          zip -r $GITHUB_WORKSPACE/macos.zip weather
+        shell: bash
+
+      - name: Archive linux binary
+        run: |
+          cd ./artifacts/weather-ubuntu-latest/linux
+          zip -r $GITHUB_WORKSPACE/linux.zip weather
+        shell: bash
+
+      - name: Archive windows binary
+        run: |
+          cd ./artifacts/weather-windows-latest/windows
+          zip -r $GITHUB_WORKSPACE/windows.zip weather.exe
+        shell: bash
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: ./artifacts/**/*
+          files: |
+            ./macos.zip
+            ./linux.zip
+            ./windows.zip
         env:
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
