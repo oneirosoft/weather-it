@@ -1,5 +1,11 @@
 # Weather
 
+<p align="center">
+  <img src="https://img.shields.io/github/actions/workflow/status/oneirosoft/weather-it/release.yml" height="32" />
+  <img src="https://img.shields.io/github/v/release/oneirosoft/weather-it" height="32" />
+  <img src="https://img.shields.io/github/license/oneirosoft/weather-it" height="32" />
+</p>
+
 ![Screenshot](./imgs/screenshot.png)
 
 Weather is a terminal-based weather dashboard built with Rust and [ratatui](https://github.com/ratatui-org/ratatui). It provides real-time weather forecasts, including daily and hourly details, using the Open-Meteo API. The app features a search bar for location queries, a daily weather overview, and an interactive hourly weather table.
